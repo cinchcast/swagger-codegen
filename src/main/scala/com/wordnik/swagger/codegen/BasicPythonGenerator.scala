@@ -1,5 +1,5 @@
 /**
- *  Copyright 2012 Wordnik, Inc.
+ *  Copyright 2013 Wordnik, Inc.
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -138,7 +138,10 @@ class BasicPythonGenerator extends BasicGenerator {
         val inner = {
           obj.items match {
             case Some(items) => items.ref.getOrElse(items.`type`)
-            case _ => throw new Exception("no inner type defined")
+            case _ => {
+              println("failed on " + declaredType + ", " + obj)
+              throw new Exception("no inner type defined")
+            }
           }
         }
         declaredType += "[" + toDeclaredType(inner) + "]"

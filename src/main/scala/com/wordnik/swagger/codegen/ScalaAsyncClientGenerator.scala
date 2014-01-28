@@ -7,12 +7,13 @@ import scala.collection.mutable.{HashMap, ListBuffer}
 import language.CodegenConfig
 import scala.io.Source
 import org.json4s.jackson.Serialization._
-import org.fusesource.scalate.{TemplateSource, TemplateEngine}
+import org.fusesource.scalate.{Template, TemplateSource, TemplateEngine}
 import org.apache.commons.io.FileUtils
 import com.wordnik.swagger.codegen.util.{CoreUtils, ApiExtractor, ResourceExtractor}
 import com.wordnik.swagger.codegen.spec.SwaggerSpecValidator
 import mojolly.inflector.InflectorImports._
 import org.rogach.scallop.{ScallopConf, Scallop}
+import scala.annotation.switch
 
 case class SwaggerApi(
              clientName: String,
@@ -20,18 +21,50 @@ case class SwaggerApi(
              packageName: String,
              apiTemplates: Map[String, String] = Map("api.mustache" -> ".scala"),
              modelTemplates: Map[String, String] = Map("model.mustache" -> ".scala"),
-             apiKey: Option[String] = None)
+             apiKey: Option[String] = None,
+             baseUrl: Option[String] = None,
+             excludedApis: Set[String] = Set.empty,
+             excludedModels: Set[String] = Set.empty,
+             excludedModelPackages: Set[String] = Set.empty,
+             defaultImports: Map[String, String] = Map.empty)
 case class SwaggerGenConfig(
              api: SwaggerApi,
              templateDir: File,
              codeDir: File,
-             projectRoot: File)
-
+             projectRoot: File,
+             defaultIncludes: Set[String] = Set.empty,
+             typeMapping: Map[String, String] = Map.empty,
+             defaultImports: Map[String, String] = Map.empty,
+             excludedModelPackages: Set[String] = Set.empty)
+object AsycnClientGeneratorConf {
+  val appBanner: String = """
+        |
+        |
+        |  .--.--.
+        | /  /    '.
+        ||  :  /`. /         .---.                                        __  ,-.
+        |;  |  |--`         /. ./|           ,----._,. ,----._,.        ,' ,'/ /|
+        ||  :  ;_        .-'-. ' | ,--.--.  /   /  ' //   /  ' /  ,---. '  | |' |
+        | \  \    `.    /___/ \: |/       \|   :     |   :     | /     \|  |   ,'
+        |  `----.   \.-'.. '   ' .--.  .-. |   | .\  |   | .\  ./    /  '  :  /
+        |  __ \  \  /___/ \:     '\__\/: . .   ; ';  .   ; ';  .    ' / |  | '
+        | /  /`--'  .   \  ' .\   ," .--.; '   .   . '   .   . '   ;   /;  : |
+        |'--'.     / \   \   ' \ /  /  ,.  |`---`-'| |`---`-'| '   |  / |  , ;
+        |  `--'---'   \   \  |--;  :   .'   .'__/\_: |.'__/\_: |   :    |---'
+        |              \   \ |  |  ,     .-.|   :    :|   :    :\   \  /
+        |               '---"    `--`---'    \   \  /  \   \  /  `----'
+        |                                     `--`-'    `--`-'
+        |
+        |         Swagger Codegen, Reverb Technologies Inc. (c) 2009-2013
+        |      For more info, visit: https://developers.helloreverb.com/swagger/
+      """.stripMargin
+}
 class AsycnClientGeneratorConf(arguments: Seq[String]) extends ScallopConf(arguments) {
 
   val name = opt[String](required = true, descr = "The name of the generated client.")
   val `package` = opt[String](default = Some("com.wordnik.swagger.client.async"), descr = "The package for the generated code.")
   val resourceUrl = trailArg[String](descr = "The url to use for fetching the swagger spec from. This can be a http(s) url or a file path.")
+  val baseUrl = opt[String](descr = "The url to use when you want to override the base url provided by the resource url json.")
   val apiKey = opt[String](required = false, descr = "An optional api key to use when calling the swagger api")
   val templateDir = opt[String](descr = "The directory that contains the templates for use in this generator", default = Some("asyncscala"))
   val codeDir = opt[String](descr = "The directory to use as base for generating code files, this will contain the generated scala files.", default = Some("src/main/scala"), hidden = true)
@@ -53,27 +86,7 @@ class AsycnClientGeneratorConf(arguments: Seq[String]) extends ScallopConf(argum
 }
 object ScalaAsyncClientGenerator extends App {
 
-  val appBanner = """
-                    |
-                    |
-                    |  .--.--.
-                    | /  /    '.
-                    ||  :  /`. /         .---.                                        __  ,-.
-                    |;  |  |--`         /. ./|           ,----._,. ,----._,.        ,' ,'/ /|
-                    ||  :  ;_        .-'-. ' | ,--.--.  /   /  ' //   /  ' /  ,---. '  | |' |
-                    | \  \    `.    /___/ \: |/       \|   :     |   :     | /     \|  |   ,'
-                    |  `----.   \.-'.. '   ' .--.  .-. |   | .\  |   | .\  ./    /  '  :  /
-                    |  __ \  \  /___/ \:     '\__\/: . .   ; ';  .   ; ';  .    ' / |  | '
-                    | /  /`--'  .   \  ' .\   ," .--.; '   .   . '   .   . '   ;   /;  : |
-                    |'--'.     / \   \   ' \ /  /  ,.  |`---`-'| |`---`-'| '   |  / |  , ;
-                    |  `--'---'   \   \  |--;  :   .'   .'__/\_: |.'__/\_: |   :    |---'
-                    |              \   \ |  |  ,     .-.|   :    :|   :    :\   \  /
-                    |               '---"    `--`---'    \   \  /  \   \  /  `----'
-                    |                                     `--`-'    `--`-'
-                    |
-                    |         Swagger Codegen, Reverb Technologies Inc. (c) 2009-2013
-                    |      For more info, visit: https://developers.helloreverb.com/swagger/
-                  """.stripMargin
+  val appBanner: String = AsycnClientGeneratorConf.appBanner
 
   val opts = new AsycnClientGeneratorConf(if (args.nonEmpty) args else Array("--help"))
   val rootDir = new File(opts.projectRoot())
@@ -87,8 +100,9 @@ object ScalaAsyncClientGenerator extends App {
     if (!r.startsWith("http") && !r.startsWith("file")) sys.props("fileMap") = r
     r
   }
+  val baseUrl = opts.baseUrl.get
   val cfg = SwaggerGenConfig(
-    api = SwaggerApi(opts.name(), opts.resourceUrl(), opts.`package`(), apiKey = opts.apiKey.get),
+    api = SwaggerApi(opts.name(), resUrl, opts.`package`(), apiKey = opts.apiKey.get, baseUrl = baseUrl),
     templateDir = new File(opts.templateDir()),
     codeDir = new File(rootDir, opts.codeDir()),
     projectRoot = rootDir
@@ -156,13 +170,7 @@ class AsyncClientCodegen(clientName: String, config: CodegenConfig, rootDir: Opt
 
       if (supportingFile.endsWith(".mustache")) {
         val output = {
-          val resourceName = config.templateDir + File.separator + supportingFile
-          val is = getInputStream(resourceName)
-          if (is == null)
-            throw new Exception("Resource not found: " + resourceName)
-          val template = engine.compile(
-            TemplateSource.fromText(resourceName,
-              Source.fromInputStream(is).mkString))
+          val (resourceName, (_, template)) = compileTemplate(supportingFile, rootDir, Some(engine))
           engine.layout(resourceName, template, data.toMap)
         }
         val fw = new FileWriter(outputFilename, false)
@@ -192,6 +200,19 @@ class AsyncClientCodegen(clientName: String, config: CodegenConfig, rootDir: Opt
 
     engine.compiler.shutdown()
   }
+
+  override protected def compileTemplate(templateFile: String, rootDir: Option[File] = None, engine: Option[TemplateEngine] = None): (String, (TemplateEngine, Template)) = {
+    val eng = engine getOrElse new TemplateEngine(rootDir orElse Some(new File(".")))
+    val rn = config.templateDir + File.separator + templateFile
+    val rrn = "asyncscala" + File.separator + templateFile
+    val resourceName = if (new File(rn).exists) rn else rrn
+    val is = getInputStream(resourceName)
+    if (is == null)
+      throw new Exception("Missing template: " + resourceName)
+
+    val template = eng.compile(TemplateSource.fromText(resourceName,Source.fromInputStream(is).mkString))
+    (resourceName, eng -> template)
+  }
 }
 
 class ScalaAsyncClientGenerator(cfg: SwaggerGenConfig) extends BasicGenerator {
@@ -203,26 +224,81 @@ class ScalaAsyncClientGenerator(cfg: SwaggerGenConfig) extends BasicGenerator {
   override val fileSuffix: String = ".scala"
   override val modelPackage: Option[String] = Some(packageName + ".model")
   override val apiPackage: Option[String] = Some(packageName + ".apis")
-  override val reservedWords: Set[String] = Set("type", "package", "match", "object")
-  override val importMapping = Map("Date" -> "org.joda.time.DateTime")
+
+
+  override val reservedWords: Set[String] =
+    Set(
+      "abstract",
+      "case",
+      "catch",
+      "class",
+      "def",
+      "do",
+      "else",
+      "extends",
+      "false",
+      "final",
+      "finally",
+      "for",
+      "forSome",
+      "if",
+      "implicit",
+      "import",
+      "lazy",
+      "match",
+      "new",
+      "null",
+      "object",
+      "override",
+      "package",
+      "private",
+      "protected",
+      "return",
+      "sealed",
+      "super",
+      "this",
+      "throw",
+      "trait",
+      "try",
+      "true",
+      "type",
+      "val",
+      "var",
+      "while",
+      "with",
+      "yield")
+  override val importMapping = Map(
+      "Date" -> "java.util.Date",
+      "File" -> "java.io.File"
+    ) ++ cfg.defaultImports ++ cfg.api.defaultImports
   override val typeMapping = Map(
+      "array" -> "List",
       "boolean" -> "Boolean",
       "string" -> "String",
       "int" -> "Int",
+      "long" -> "Long",
       "float" -> "Float",
+      "byte" -> "Byte",
+      "short" -> "Short",
+      "char" -> "Char",
       "long" -> "Long",
       "double" -> "Double",
       "object" -> "Any",
-      "Date" -> "DateTime")
+      "file" -> "File") ++ cfg.typeMapping
 
   override val defaultIncludes = Set(
       "Int",
       "String",
       "Long",
+      "Short",
+      "Char",
+      "Byte",
       "Float",
       "Double",
       "Boolean",
-      "Any")
+      "AnyRef",
+      "Any") ++  cfg.defaultIncludes ++ cfg.api.excludedModels
+
   override def supportingFiles = List(
     ("client.mustache", destinationDir + "/" + cfg.api.packageName.replace('.', '/'), (pascalizedClientName +".scala")),
     ("sbt.mustache", cfg.projectRoot.getPath, "swagger-client.sbt")
@@ -234,24 +310,35 @@ class ScalaAsyncClientGenerator(cfg: SwaggerGenConfig) extends BasicGenerator {
 
   codegen = new AsyncClientCodegen(cfg.api.clientName, this, Some(cfg.projectRoot))
 
+
+  override def getBasePath(host: String, basePath: String): String =
+    cfg.api.baseUrl.getOrElse(super.getBasePath(host, basePath))
+
   override def generateClient(args: Array[String]) = {
 
     val host = cfg.api.resourceUrl
-    val apiKey = cfg.api.apiKey map ("?api_key=" + _)
+    val authorization = {
+      val apiKey = cfg.api.apiKey
+      if(apiKey != None) 
+        Some(ApiKeyValue("api_key", "query", apiKey.get))
+      else 
+        None
+    }
+
     val doc = {
       try {
-        ResourceExtractor.fetchListing(getResourcePath(host), apiKey)
+        ResourceExtractor.fetchListing(getResourcePath(host), authorization)
       } catch {
         case e: Exception => throw new Exception("unable to read from " + host, e)
       }
     }
 
-    implicit val basePath = getBasePath(doc.basePath)
+    implicit val basePath = getBasePath(host, doc.basePath)
 
     val apiReferences = doc.apis
     if (apiReferences == null)
       throw new Exception("No APIs specified by resource")
-    val apis = ApiExtractor.fetchApiListings(basePath, apiReferences, apiKey)
+    val apis = ApiExtractor.fetchApiListings(doc.swaggerVersion, basePath, apiReferences, authorization)
 
     new SwaggerSpecValidator(doc, apis).validate()
 
@@ -308,12 +395,12 @@ class ScalaAsyncClientGenerator(cfg: SwaggerGenConfig) extends BasicGenerator {
         })
       }
       output.map(op => processApiOperation(op._2, op._3))
-      allModels ++= CoreUtils.extractApiModels(apiDescription)
+      allModels ++= CoreUtils.extractApiModels(apiDescription, defaultIncludes, typeMapping)
     })
     output.toList
   }
 
-  override def toModelName(name: String) = name.pascalize
+  override def toModelName(name: String) = toDeclaredType(name.pascalize)
 
   override def toApiName(name: String) = {
     name.replaceAll("\\{","").replaceAll("\\}", "") match {
@@ -332,44 +419,41 @@ class ScalaAsyncClientGenerator(cfg: SwaggerGenConfig) extends BasicGenerator {
    * creates a map of models and properties needed to write source
    */
   override def prepareModelMap(models: Map[String, Model]): List[Map[String, AnyRef]] = {
-    (for ((name, schema) <- models) yield {
-      if (!defaultIncludes.contains(name)) {
-        Some(Map(
-          "name" -> toModelName(name),
-          "className" -> name,
-          "filename" -> toModelFilename(name),
-          "apis" -> None,
-          "models" -> List((name, schema)),
-          "package" -> modelPackage,
-          "invokerPackage" -> invokerPackage,
-          "outputDirectory" -> (destinationDir + File.separator + modelPackage.getOrElse("").replaceAll("\\.", File.separator)),
-          "newline" -> "\n"))
-      }
-      else None
-    }).flatten.toList
+    for {
+      (name, schema) <- (models -- defaultIncludes).toList
+      if !(cfg.excludedModelPackages ++ cfg.api.excludedModelPackages).exists(schema.qualifiedType.startsWith)
+    } yield {
+      Map(
+        "name" -> toModelName(name),
+        "className" -> name,
+        "filename" -> toModelFilename(name),
+        "apis" -> None,
+        "models" -> List((name, schema)),
+        "package" -> modelPackage,
+        "invokerPackage" -> invokerPackage,
+        "outputDirectory" -> (destinationDir + File.separator + modelPackage.getOrElse("").replaceAll("\\.", File.separator)),
+        "newline" -> "\n")
+    }
   }
 
   override def prepareApiBundle(apiMap: Map[(String, String), List[(String, Operation)]] ): List[Map[String, AnyRef]] = {
-    (for ((identifier, operationList) <- apiMap) yield {
-      val basePath = identifier._1
-      val name = identifier._2
-      val className = toApiName(name)
-
-      Some(Map(
-          "baseName" -> name,
-          "filename" -> toApiFilename(name),
-          "name" -> toApiName(name),
-          "className" -> className,
-          "basePath" -> basePath,
-          "package" -> apiPackage,
-          "invokerPackage" -> invokerPackage,
-          "apis" -> Map(className -> operationList.toList),
-          "models" -> None,
-          "outputDirectory" -> (destinationDir + File.separator + apiPackage.getOrElse("").replaceAll("\\.", File.separator)),
-          "newline" -> "\n"))
-
-
-    }).flatten.toList
+    for {
+      ((basePath, name), operationList) <- apiMap.toList
+      className = toApiName(name)
+    } yield {
+      Map(
+        "baseName" -> name,
+        "filename" -> toApiFilename(name),
+        "name" -> toApiName(name),
+        "className" -> className,
+        "basePath" -> basePath,
+        "package" -> apiPackage,
+        "invokerPackage" -> invokerPackage,
+        "apis" -> Map(className -> operationList.toList),
+        "models" -> None,
+        "outputDirectory" -> (destinationDir + File.separator + apiPackage.getOrElse("").replaceAll("\\.", File.separator)),
+        "newline" -> "\n")
+    }
   }
 
   override def bundleToSource(bundle:List[Map[String, AnyRef]], templates: Map[String, String]): List[(String, String)] = {
@@ -397,12 +481,14 @@ class ScalaAsyncClientGenerator(cfg: SwaggerGenConfig) extends BasicGenerator {
     val opMap = new mutable.HashMap[(String, String), mutable.ListBuffer[(String, Operation)]]
     for ((basePath, apiPath, operation) <- operations) {
       val className = resourceNameFromFullPath(apiPath)
-      val listToAddTo = opMap.getOrElse((basePath, className), {
-        val l = new mutable.ListBuffer[(String, Operation)]
-        opMap += (basePath, className) -> l
-        l
-      })
-      listToAddTo += (apiPath -> operation)
+      if (!cfg.api.excludedApis.exists(_.equalsIgnoreCase(className))) {
+        val listToAddTo = opMap.getOrElse((basePath, className), {
+          val l = new mutable.ListBuffer[(String, Operation)]
+          opMap += (basePath, className) -> l
+          l
+        })
+        listToAddTo += (apiPath -> operation)
+      }
     }
     opMap.map(m => (m._1, m._2.toList)).toMap
   }
@@ -412,31 +498,48 @@ class ScalaAsyncClientGenerator(cfg: SwaggerGenConfig) extends BasicGenerator {
   override def processResponseClass(responseClass: String): Option[String] = {
     responseClass match {
       case "void" => None //Some("Unit")
-      case e: String => Some(typeMapping.getOrElse(e, e))
+      case e: String => Some(toDeclaredType(e))
     }
   }
 
   override def processResponseDeclaration(responseClass: String): Option[String] = {
     responseClass match {
       case "void" => None //Some("Unit")
-      case e: String => Some(typeMapping.getOrElse(e, e))
+      case e: String => Some(toDeclaredType(e))
     }
+  }
+
+  override def toDeclaredType(dt: String): String = {
+    val declaredType = (dt.indexOf("[")) match {
+      case -1 => dt
+      case n: Int => {
+        if (dt.substring(0, n).toLowerCase == "array") {
+          val dtt = dt.substring(n + 1, dt.length - 1)
+          "List[%s]".format(typeMapping.getOrElse(dtt, dtt))
+        } else dt
+      }
+    }
+    typeMapping.getOrElse(declaredType, declaredType)
   }
 
   override def toDeclaration(obj: ModelProperty): (String, String) = {
     obj.`type` match {
-      case "Array" => {
-        val inner = {
-          obj.items match {
-            case Some(items) => items.ref.getOrElse(items.`type`)
-            case _ => throw new Exception("no inner type defined")
-          }
-        }
-        val e = "List[%s]" format toDeclaredType(inner)
-        (e, toDefaultValue(inner, obj))
-      }
+      case "Array" | "array" =>  makeContainerType(obj, "List")
+      case "Set" | "set" => makeContainerType(obj, "Set")
       case e: String => (toDeclaredType(e), toDefaultValue(e, obj))
     }
+  }
+
+
+  private def makeContainerType(obj: ModelProperty, container: String): (String, String) = {
+    val inner = {
+      obj.items match {
+        case Some(items) => items.ref.getOrElse(items.`type`)
+        case _ => throw new Exception("no inner type defined")
+      }
+    }
+    val e = "%s[%s]" format (container, toDeclaredType(inner))
+    (e, toDefaultValue(inner, obj))
   }
 
   // escape keywords

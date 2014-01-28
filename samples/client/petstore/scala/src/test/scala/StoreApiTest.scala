@@ -33,10 +33,10 @@ class StoreApiTest extends FlatSpec with ShouldMatchers {
   it should "place an order" in {
     val now = new java.util.Date
     val order = Order (
-      1000,
       10,
-      "pending",
+      1000,
       101,
+      "pending",
       now)
 
     api.placeOrder(order)
@@ -57,8 +57,8 @@ class StoreApiTest extends FlatSpec with ShouldMatchers {
     val order = Order(
       1001,
       10,
-      "pending",
       101,
+      "pending",
       now)
 
     api.placeOrder(order)
@@ -71,11 +71,6 @@ class StoreApiTest extends FlatSpec with ShouldMatchers {
         order.shipDate should be (now)
       }
       case None =>
-    }
-    
-    api.deleteOrder("1001")
-    intercept[ApiException] {
-      api.getOrderById("1001") should be (None)
     }
   }
 }

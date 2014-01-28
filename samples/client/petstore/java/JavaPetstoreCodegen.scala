@@ -1,5 +1,5 @@
 /**
- *  Copyright 2012 Wordnik, Inc.
+ *  Copyright 2013 Wordnik, Inc.
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -33,6 +33,11 @@ object JavaPetstoreCodegen extends BasicJavaGenerator {
 
   // package for api classes
   override def apiPackage = Some("com.wordnik.petstore.api")
+
+  additionalParams ++= Map(
+    "artifactId" -> "swagger-petstore", 
+    "artifactVersion" -> "1.0.0",
+    "groupId" -> "com.wordnik")
 
   // supporting classes
   override def supportingFiles =

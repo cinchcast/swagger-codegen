@@ -1,5 +1,5 @@
 /**
- *  Copyright 2012 Wordnik, Inc.
+ *  Copyright 2013 Wordnik, Inc.
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -28,40 +28,40 @@ import scala.io._
 import scala.collection.mutable.{ ListBuffer, HashMap, HashSet }
 
 object ApiExtractor extends RemoteUrl {
-  implicit val formats = SwaggerSerializers.formats
-
-  def fetchApiListings(basePath: String, apis: List[ApiListingReference], apiKey: Option[String] = None): List[ApiListing] = {
+  def fetchApiListings(version: String, basePath: String, apis: List[ApiListingReference], authorization: Option[AuthorizationValue] = None): List[ApiListing] = {
+    implicit val formats = SwaggerSerializers.formats(version)
     (for (api <- apis) yield {
-          try{
-            val json = basePath.startsWith("http") match {
-              case true => {
-                println("calling: " + ((basePath + api.path + apiKey.getOrElse("")).replaceAll(".\\{format\\}", ".json")))
-                urlToString((basePath + api.path + apiKey.getOrElse("")).replaceAll(".\\{format\\}", ".json"))
-              }
-              case false => Source.fromFile((basePath + api.path).replaceAll(".\\{format\\}", ".json")).mkString
-            }
-            Some(parse(json).extract[ApiListing])
+      try{
+        val json = (basePath.startsWith("http")) match {
+          case true => {
+            val path = if(api.path.startsWith("http")) api.path
+            else basePath + api.path
+            urlToString(path.replaceAll(".\\{format\\}", ".json"), authorization)
           }
-          catch {
-            case e: java.io.FileNotFoundException => {
-              println("WARNING!  Unable to read API " + basePath + api.path)
-              None
-            }
-            case e: Throwable => {
-              println("WARNING!  Unable to read API " + basePath + api.path)
-              e.printStackTrace()
-              None
-            }
-          }
-        }).flatten.toList
+          case false => Source.fromFile((basePath + api.path).replaceAll(".\\{format\\}", ".json")).mkString
+        }
+        Some(parse(json).extract[ApiListing])
+      }
+      catch {
+        case e: java.io.FileNotFoundException => {
+          println("WARNING!  Unable to read API " + basePath + api.path)
+          None
+        }
+        case e: Throwable => {
+          println("WARNING!  Unable to read API " + basePath + api.path)
+          e.printStackTrace()
+          None
+        }
+      }
+    }).flatten.toList
   }
 
-  def extractApiOperations(basePath: String, references: List[ApiListingReference], apiKey: Option[String] = None) = {
+  def extractApiOperations(version: String, basePath: String, references: List[ApiListingReference], authorization: Option[AuthorizationValue] = None) = {
+    implicit val formats = SwaggerSerializers.formats(version)
     for (api <- references) yield {
       val json = basePath.startsWith("http") match {
         case true => {
-          println("calling: " + ((basePath + api.path + apiKey.getOrElse("")).replaceAll(".\\{format\\}", ".json")))
-          urlToString((basePath + api.path + apiKey.getOrElse("")).replaceAll(".\\{format\\}", ".json"))
+          urlToString((basePath + api.path).replaceAll(".\\{format\\}", ".json"), authorization)
         }
         case false => Source.fromFile((basePath + api.path).replaceAll(".\\{format\\}", ".json")).mkString
       }

@@ -1,5 +1,5 @@
 /**
- *  Copyright 2012 Wordnik, Inc.
+ *  Copyright 2013 Wordnik, Inc.
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -75,15 +75,15 @@ class BasicRubyGenerator extends BasicGenerator {
   }
 
   override def toDeclaration(obj: ModelProperty) = {
-    var datatype = obj.`type`(0).toUpper + obj.`type`.substring(1)
+    var dataType = obj.`type`(0).toUpper + obj.`type`.substring(1)
 
-    datatype match {
-      case "Array" => datatype = "List"
+    dataType match {
+      case "Array" => dataType = "List"
       case e: String => e
     }
 
-    val defaultValue = toDefaultValue(datatype, obj)
-    datatype match {
+    val defaultValue = toDefaultValue(dataType, obj)
+    dataType match {
       case "List" => {
         val inner = {
           obj.items match {
@@ -93,13 +93,17 @@ class BasicRubyGenerator extends BasicGenerator {
               else
                 items.`type`
             }
-            case _ => throw new Exception("no inner type defined")
-          }        }
-        datatype = "java.util.List[" + inner + "]"
+            case _ => {
+              println("failed on " + dataType + ", " + obj)
+              throw new Exception("no inner type defined")
+            }
+          }
+        }
+        dataType = "java.util.List[" + inner + "]"
       }
       case _ =>
     }
-    (datatype, defaultValue)
+    (dataType, defaultValue)
   }
 
   // supporting classes

@@ -5,31 +5,41 @@ organization := "com.wordnik"
 
 name := "swagger-codegen"
 
-version := "2.0.3-SNAPSHOT"
+version := "2.0.13"
 
-scalaVersion := "2.9.2"
+scalaVersion := "2.10.0"
 
-javacOptions ++= Seq("-Xlint:unchecked", "-Xlint:deprecation")
+crossVersion := CrossVersion.full
+
+javacOptions ++= Seq("-target", "1.6", "-source", "1.6", "-Xlint:unchecked", "-Xlint:deprecation")
 
 scalacOptions ++= Seq("-optimize", "-unchecked", "-deprecation", "-Xcheckinit", "-encoding", "utf8")
 
-crossScalaVersions := Seq("2.9.0", "2.9.0-1", "2.9.1", "2.9.1-1", "2.9.2", "2.10.0")
+//crossScalaVersions := Seq("2.9.0", "2.9.0-1", "2.9.1", "2.9.1-1", "2.9.2", "2.9.3", "2.10.0", "2.10.1", "2.10.2")
 
 libraryDependencies ++= Seq(
-  "org.json4s" %% "json4s-jackson" % "3.2.4",
-  "io.backchat.inflector" %% "scala-inflector" % "1.3.5",
-  "commons-io" % "commons-io" % "2.3",
-  "ch.qos.logback" % "logback-classic" % "1.0.10" % "provided",
-  "org.rogach" %% "scallop" % "0.8.1",
-  "junit" % "junit" % "4.11" % "test",
-  "org.scalatest" %% "scalatest" % "1.9.1" % "test"
+  "org.json4s"                  %% "json4s-jackson"     % "3.2.5",
+  "io.backchat.inflector"       %% "scala-inflector"    % "1.3.5",
+  "commons-io"                   % "commons-io"         % "2.3",
+  "ch.qos.logback"               % "logback-classic"    % "1.0.13" % "provided",
+  "org.rogach"                  %% "scallop"            % "0.9.4",
+  "junit"                        % "junit"              % "4.11" % "test",
+  "org.scalatest"               %% "scalatest"          % "1.9.1" % "test"
 )
 
 libraryDependencies <+= scalaVersion {
   case v if v.startsWith("2.9") => 
     "org.fusesource.scalate" % "scalate-core_2.9" % "1.6.1"
-  case v if v.startsWith("2.10") => 
+  case v if v.startsWith("2.10") => { 
     "org.fusesource.scalate" %% "scalate-core" % "1.6.1"
+  }
+}
+
+libraryDependencies ++= {
+  scalaVersion.toString match {
+    case v if v.startsWith("2.10") => Seq("org.scala-lang" % "scala-reflect" % v)
+    case _ => Seq()
+  }
 }
 
 packageOptions <+= (name, version, organization) map {
@@ -52,8 +62,18 @@ publishTo <<= (version) { version: String =>
   if (version.trim.endsWith("SNAPSHOT"))
     Some("Sonatype Nexus Snapshots" at "https://oss.sonatype.org/content/repositories/snapshots")
   else
-    Some("Sonatype Nexus Releases" at "https://oss.sonatype.org/content/repositories/releases")
+    Some("Sonatype Nexus Releases" at "https://oss.sonatype.org/service/local/staging/deploy/maven2")
 }
+
+
+publishTo := Some(Resolver.file("file",  new File(Path.userHome.absolutePath+"/.m2/repository")))
+
+
+publishMavenStyle := true
+
+publishArtifact in Test := false
+
+pomIncludeRepository := { x => false }
 
 credentials += Credentials(Path.userHome / ".ivy2" / ".credentials")
 
@@ -83,7 +103,7 @@ pomExtra <<= (pomExtra, name, description) {(pom, name, desc) => pom ++ Group(
     </developer>
     <developer>
       <id>ayush</id>
-      <name>Ayush Gupts</name>
+      <name>Ayush Gupta</name>
       <email>ayush@glugbot.com</email>
     </developer>
     <developer>

@@ -1,5 +1,5 @@
 /**
- *  Copyright 2012 Wordnik, Inc.
+ *  Copyright 2013 Wordnik, Inc.
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -44,13 +44,17 @@ class BasicJavaGenerator extends BasicGenerator {
    * variable declarations.
    */
   override def typeMapping = Map(
+    "Array" -> "List",
+    "array" -> "List",
+    "List" -> "List",
     "boolean" -> "Boolean",
     "string" -> "String",
     "int" -> "Integer",
     "float" -> "Float",
     "long" -> "Long",
     "double" -> "Double",
-    "object" -> "Object")
+    "object" -> "Object",
+    "integer" -> "Integer")
 
   // location of templates
   override def templateDir = "Java"
@@ -74,6 +78,7 @@ class BasicJavaGenerator extends BasicGenerator {
 
   // import/require statements for specific datatypes
   override def importMapping = Map(
+    "File" -> "java.io.File",
     "Date" -> "java.util.Date",
     "Array" -> "java.util.*",
     "ArrayList" -> "java.util.*",
@@ -88,6 +93,11 @@ class BasicJavaGenerator extends BasicGenerator {
   // file suffix
   override def fileSuffix = ".java"
 
+  override def toVarName(name: String): String = {
+    val paramName = name.replaceAll("[^a-zA-Z0-9_]","")
+    super.toVarName(paramName)
+  }
+
   // response classes
   override def processResponseClass(responseClass: String): Option[String] = {
     responseClass match {
@@ -99,7 +109,16 @@ class BasicJavaGenerator extends BasicGenerator {
   override def processResponseDeclaration(responseClass: String): Option[String] = {
     responseClass match {
       case "void" => None
-      case e: String => Some(typeMapping.getOrElse(e, e.replaceAll("\\[", "<").replaceAll("\\]", ">")))
+      case e: String => {
+        val ComplexTypeMatcher = "(.*)\\[(.*)\\].*".r
+        val t = e match {
+          case ComplexTypeMatcher(container, inner) => {
+            e.replaceAll(container, typeMapping.getOrElse(container, container))
+          }
+          case _ => e
+        }
+        Some(typeMapping.getOrElse(t, t.replaceAll("\\[", "<").replaceAll("\\]", ">")))
+      }
     }
   }
 
@@ -109,6 +128,8 @@ class BasicJavaGenerator extends BasicGenerator {
       case n: Int => {
         if (dt.substring(0, n) == "Array")
           "List" + dt.substring(n).replaceAll("\\[", "<").replaceAll("\\]", ">")
+        else if (dt.substring(0, n) == "Set")
+          "Set" + dt.substring(n).replaceAll("\\[", "<").replaceAll("\\]", ">")
         else dt.replaceAll("\\[", "<").replaceAll("\\]", ">")
       }
     }
@@ -117,7 +138,6 @@ class BasicJavaGenerator extends BasicGenerator {
 
   override def toDeclaration(obj: ModelProperty) = {
     var declaredType = toDeclaredType(obj.`type`)
-
     declaredType match {
       case "Array" => declaredType = "List"
       case e: String => e
@@ -129,7 +149,22 @@ class BasicJavaGenerator extends BasicGenerator {
         val inner = {
           obj.items match {
             case Some(items) => items.ref.getOrElse(items.`type`)
-            case _ => throw new Exception("no inner type defined")
+            case _ => {
+              println("failed on " + declaredType + ", " + obj)
+              throw new Exception("no inner type defined")
+            }
+          }
+        }
+        declaredType += "<" + toDeclaredType(inner) + ">"
+      }
+      case "Set" => {
+        val inner = {
+          obj.items match {
+            case Some(items) => items.ref.getOrElse(items.`type`)
+            case _ => {
+              println("failed on " + declaredType + ", " + obj)
+              throw new Exception("no inner type defined")
+            }
           }
         }
         declaredType += "<" + toDeclaredType(inner) + ">"
@@ -154,7 +189,10 @@ class BasicJavaGenerator extends BasicGenerator {
         val inner = {
           obj.items match {
             case Some(items) => items.ref.getOrElse(items.`type`)
-            case _ => throw new Exception("no inner type defined")
+            case _ => {
+              println("failed on " + dataType + ", " + obj)
+              throw new Exception("no inner type defined")
+            }
           }
         }
         "new ArrayList<" + toDeclaredType(inner) + ">" + "()"

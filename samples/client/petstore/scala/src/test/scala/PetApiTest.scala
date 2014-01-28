@@ -16,7 +16,7 @@ class PetApiTest extends FlatSpec with ShouldMatchers {
   val api = new PetApi
 
   it should "fetch a pet" in {
-    api.getPetById("1") match {
+    api.getPetById(1) match {
       case Some(pet) => {
         pet should not be (null)
         pet.id should be(1)
@@ -27,15 +27,16 @@ class PetApiTest extends FlatSpec with ShouldMatchers {
 
   it should "add a new pet" in {
     val pet = Pet(
-      (for (i <- (1 to 5)) yield Tag(i, "tag-" + i)).toList,
       1000,
       Category(1, "sold"),
-      "lost",
       "dragon",
-      (for (i <- (1 to 10)) yield "http://foo.com/photo/" + i).toList)
+      (for (i <- (1 to 10)) yield "http://foo.com/photo/" + i).toList,
+      (for (i <- (1 to 5)) yield Tag(i, "tag-" + i)).toList,
+      "lost"
+    )
 
     api.addPet(pet)
-    api.getPetById("1000") match {
+    api.getPetById(1000) match {
       case Some(pet) => {
         pet.id should be(1000)
         pet.tags.size should be(5)
@@ -51,16 +52,17 @@ class PetApiTest extends FlatSpec with ShouldMatchers {
 
   it should "update a pet" in {
     val pet = Pet(
-      (for (i <- (1 to 5)) yield Tag(i, "tag-" + i)).toList,
       1000,
       Category(1, "sold"),
-      "confused",
       "programmer",
-      (for (i <- (1 to 10)) yield "http://foo.com/photo/" + i).toList)
+      (for (i <- (1 to 10)) yield "http://foo.com/photo/" + i).toList,
+      (for (i <- (1 to 5)) yield Tag(i, "tag-" + i)).toList,
+      "confused"
+    )
 
     api.addPet(pet)
 
-    api.getPetById("1000") match {
+    api.getPetById(1000) match {
       case Some(pet) => {
         pet.name should be("programmer")
         pet.status should be("confused")
@@ -69,7 +71,7 @@ class PetApiTest extends FlatSpec with ShouldMatchers {
     }
     val updatedPet = pet.copy(status="fulfilled")
     api.updatePet(updatedPet)
-    api.getPetById("1000") match {
+    api.getPetById(1000) match {
       case Some(pet) => {
         pet.name should be("programmer")
         pet.status should be("fulfilled")

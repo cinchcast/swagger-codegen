@@ -2,7 +2,6 @@ package {{package}}
 
 {{#imports}}import {{import}}
 {{/imports}}
-import com.wordnik.swagger.core.ApiPropertiesReader
 
 import org.scalatra.{ TypedParamSupport, ScalatraServlet }
 import org.scalatra.swagger._
@@ -47,7 +46,6 @@ class {{className}} (implicit val swagger: Swagger) extends ScalatraServlet
         {{#hasMore}},{{/hasMore}}
         {{/allParams}})
   )
-  
 
   {{httpMethod}}("{{path}}",operation({{nickname}}Operation)) {
     {{#allParams}}

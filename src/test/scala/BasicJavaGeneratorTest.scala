@@ -1,5 +1,5 @@
 /**
- *  Copyright 2012 Wordnik, Inc.
+ *  Copyright 2013 Wordnik, Inc.
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -44,6 +44,17 @@ class BasicJavaGeneratorTest extends FlatSpec with ShouldMatchers {
    */
   it should "process a string response" in {
   	config.processResponseDeclaration("string") should be (Some("String"))
+  }
+
+ /*
+   * arrays look nice
+   */
+  it should "process a string array" in {
+    config.processResponseDeclaration("array[String]") should be (Some("List<String>"))
+  }
+
+  it should "process an upper-case string array" in {
+    config.processResponseDeclaration("Array[String]") should be (Some("List<String>"))
   }
 
   /*
@@ -100,7 +111,7 @@ class BasicJavaGeneratorTest extends FlatSpec with ShouldMatchers {
       "double" -> ("Double", "null"),
       "object" -> ("Object", "null"))
     expected.map(e => {
-      val model = ModelProperty(e._1)
+      val model = ModelProperty(e._1, "nothing")
       config.toDeclaration(model) should be (e._2)
     })
   }
@@ -128,7 +139,8 @@ class BasicJavaGeneratorTest extends FlatSpec with ShouldMatchers {
    */
    it should "create a declaration with a List of strings" in {
       val property = ModelProperty(
-        "Array", 
+        `type` = "Array", 
+        qualifiedType = "nothing",
         items=Some(ModelRef(`type`= "string")))
       val m = config.toDeclaration(property)
       m._1 should be ("List<String>")
@@ -140,7 +152,8 @@ class BasicJavaGeneratorTest extends FlatSpec with ShouldMatchers {
    */
    it should "create a declaration with a List of ints" in {
       val property = ModelProperty(
-        "Array", 
+        `type` = "Array", 
+        qualifiedType = "nothing",
         items=Some(ModelRef(`type`= "int")))
       val m = config.toDeclaration(property)
       m._1 should be ("List<Integer>")
@@ -152,7 +165,8 @@ class BasicJavaGeneratorTest extends FlatSpec with ShouldMatchers {
    */
    it should "create a declaration with a List of floats" in {
       val property = ModelProperty(
-        "Array", 
+        `type` = "Array", 
+        qualifiedType = "nothing",
         items=Some(ModelRef(`type`= "float")))
       val m = config.toDeclaration(property)
       m._1 should be ("List<Float>")
@@ -164,7 +178,8 @@ class BasicJavaGeneratorTest extends FlatSpec with ShouldMatchers {
    */
    it should "create a declaration with a List of doubles" in {
       val property = ModelProperty(
-        "Array", 
+        `type` = "Array", 
+        qualifiedType = "nothing",
         items=Some(ModelRef(`type`= "double")))
       val m = config.toDeclaration(property)
       m._1 should be ("List<Double>")
@@ -176,7 +191,8 @@ class BasicJavaGeneratorTest extends FlatSpec with ShouldMatchers {
    */
    it should "create a declaration with a List of complex objects" in {
       val property = ModelProperty(
-        "Array", 
+        `type` = "Array", 
+        qualifiedType = "nothing",
         items=Some(ModelRef(`type`= "User")))
       val m = config.toDeclaration(property)
       m._1 should be ("List<User>")

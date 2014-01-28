@@ -67,7 +67,7 @@ class APIClient {
 		}
 
 		if (is_object($postData) or is_array($postData)) {
-			$postData = json_encode($postData);
+			$postData = json_encode(self::sanitizeForSerialization($postData));
 		}
 
 		$url = $this->apiServer . $resourcePath;
@@ -78,24 +78,23 @@ class APIClient {
 		curl_setopt($curl, CURLOPT_RETURNTRANSFER, true);
 		curl_setopt($curl, CURLOPT_HTTPHEADER, $headers);
 
-		if ($method == self::$GET) {
-			if (! empty($queryParams)) {
-				$url = ($url . '?' . http_build_query($queryParams));
-			}
-		} else if ($method == self::$POST) {
-				curl_setopt($curl, CURLOPT_POST, true);
-				curl_setopt($curl, CURLOPT_POSTFIELDS, $postData);
-			} else if ($method == self::$PUT) {
-				$json_data = json_encode($postData);
-				curl_setopt($curl, CURLOPT_CUSTOMREQUEST, "PUT");
-				curl_setopt($curl, CURLOPT_POSTFIELDS, $postData);
-			} else if ($method == self::$DELETE) {
-				curl_setopt($curl, CURLOPT_CUSTOMREQUEST, "DELETE");
-				curl_setopt($curl, CURLOPT_POSTFIELDS, $postData);
-			} else {
-			throw new Exception('Method ' . $method . ' is not recognized.');
+		if (! empty($queryParams)) {
+			$url = ($url . '?' . http_build_query($queryParams));
 		}
 
+		if ($method == self::$POST) {
+			curl_setopt($curl, CURLOPT_POST, true);
+			curl_setopt($curl, CURLOPT_POSTFIELDS, $postData);
+		} else if ($method == self::$PUT) {
+			$json_data = json_encode($postData);
+			curl_setopt($curl, CURLOPT_CUSTOMREQUEST, "PUT");
+			curl_setopt($curl, CURLOPT_POSTFIELDS, $postData);
+		} else if ($method == self::$DELETE) {
+			curl_setopt($curl, CURLOPT_CUSTOMREQUEST, "DELETE");
+			curl_setopt($curl, CURLOPT_POSTFIELDS, $postData);
+		} else if ($method != self::$GET) {
+			throw new Exception('Method ' . $method . ' is not recognized.');
+		}
 		curl_setopt($curl, CURLOPT_URL, $url);
 
 		// Make the request
@@ -119,18 +118,41 @@ class APIClient {
 				$response_info['http_code']);
 		}
 
+
 		return $data;
 	}
 
-
+	/**
+	 * Build a JSON POST object
+	 */
+	public static function sanitizeForSerialization($postData) {
+		foreach ($postData as $key => $value) {
+			if (is_a($value, "DateTime")) {
+				$postData->{$key} = $value->format(DateTime::ISO8601);
+			}
+		}
+		return $postData;
+	}
 
 	/**
 	 * Take value and turn it into a string suitable for inclusion in
-	 * the path or the header
+	 * the path, by url-encoding.
+	 * @param string $value a string which will be part of the path
+	 * @return string the serialized object
+	 */
+	public static function toPathValue($value) {
+  		return rawurlencode($value);
+	}
+
+	/**
+	 * Take value and turn it into a string suitable for inclusion in
+	 * the query, by imploding comma-separated if it's an object.
+	 * If it's a string, pass through unchanged. It will be url-encoded
+	 * later.
 	 * @param object $object an object to be serialized to a string
 	 * @return string the serialized object
 	 */
-	public static function toPathValue($object) {
+	public static function toQueryValue($object) {
         if (is_array($object)) {
             return implode(',', $object);
         } else {
@@ -138,9 +160,18 @@ class APIClient {
         }
 	}
 
+	/**
+	 * Just pass through the header value for now. Placeholder in case we
+	 * find out we need to do something with header values.
+	 * @param string $value a string which will be part of the header
+	 * @return string the header string
+	 */
+	public static function toHeaderValue($value) {
+  		return $value;
+	}
 
 	/**
-	 * Derialize a JSON string into an object
+	 * Deserialize a JSON string into an object
 	 *
 	 * @param object $object object or primitive to be deserialized
 	 * @param string $class class name is passed as a string
@@ -178,17 +209,14 @@ class APIClient {
 			if (! property_exists($class, $true_property)) {
 				if (substr($property, -1) == 's') {
 					$true_property = substr($property, 0, -1);
-					if (! property_exists($class, $true_property)) {
-						trigger_error("class $class has no property $property"
-							. " or $true_property", E_USER_WARNING);
-					}
-				} else {
-					trigger_error("class $class has no property $property",
-						E_USER_WARNING);
 				}
 			}
 
-			$type = $classVars['swaggerTypes'][$true_property];
+			if (array_key_exists($true_property, $classVars['swaggerTypes'])) {
+				$type = $classVars['swaggerTypes'][$true_property];
+			} else {
+				$type = 'string';
+			}
 			if (in_array($type, array('string', 'int', 'float', 'bool'))) {
 				settype($value, $type);
 				$instance->{$true_property} = $value;
@@ -209,4 +237,6 @@ class APIClient {
 
 
 ?>
+
+
 

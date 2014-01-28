@@ -2,8 +2,8 @@ package com.wordnik.client.api;
 
 import com.wordnik.client.common.ApiException;
 import com.wordnik.client.common.ApiInvoker;
-import com.wordnik.client.model.WordObject;
 import com.wordnik.client.model.DefinitionSearchResults;
+import com.wordnik.client.model.WordObject;
 import com.wordnik.client.model.WordOfTheDay;
 import com.wordnik.client.model.WordSearchResults;
 import java.util.*;
@@ -25,6 +25,10 @@ public class WordsApi {
   }
 
   public WordSearchResults searchWords (String query, String includePartOfSpeech, String excludePartOfSpeech, String caseSensitive, Integer minCorpusCount, Integer maxCorpusCount, Integer minDictionaryCount, Integer maxDictionaryCount, Integer minLength, Integer maxLength, Integer skip, Integer limit) throws ApiException {
+    // verify required params are set
+    if(query == null ) {
+       throw new ApiException(400, "missing required params");
+    }
     // create path and map variables
     String path = "/words.{format}/search/{query}".replaceAll("\\{format\\}","json").replaceAll("\\{" + "query" + "\\}", apiInvoker.escapeString(query.toString()));
 
@@ -32,10 +36,6 @@ public class WordsApi {
     Map<String, String> queryParams = new HashMap<String, String>();
     Map<String, String> headerParams = new HashMap<String, String>();
 
-    // verify required params are set
-    if(query == null ) {
-       throw new ApiException(400, "missing required params");
-    }
     if(!"null".equals(String.valueOf(caseSensitive)))
       queryParams.put("caseSensitive", String.valueOf(caseSensitive));
     if(!"null".equals(String.valueOf(includePartOfSpeech)))
@@ -58,8 +58,10 @@ public class WordsApi {
       queryParams.put("skip", String.valueOf(skip));
     if(!"null".equals(String.valueOf(limit)))
       queryParams.put("limit", String.valueOf(limit));
+    String contentType = "application/json";
+
     try {
-      String response = apiInvoker.invokeAPI(basePath, path, "GET", queryParams, null, headerParams);
+      String response = apiInvoker.invokeAPI(basePath, path, "GET", queryParams, null, headerParams, contentType);
       if(response != null){
         return (WordSearchResults) ApiInvoker.deserialize(response, "", WordSearchResults.class);
       }
@@ -85,8 +87,10 @@ public class WordsApi {
 
     if(!"null".equals(String.valueOf(date)))
       queryParams.put("date", String.valueOf(date));
+    String contentType = "application/json";
+
     try {
-      String response = apiInvoker.invokeAPI(basePath, path, "GET", queryParams, null, headerParams);
+      String response = apiInvoker.invokeAPI(basePath, path, "GET", queryParams, null, headerParams, contentType);
       if(response != null){
         return (WordOfTheDay) ApiInvoker.deserialize(response, "", WordOfTheDay.class);
       }
@@ -103,6 +107,10 @@ public class WordsApi {
     }
   }
   public DefinitionSearchResults reverseDictionary (String query, String findSenseForWord, String includeSourceDictionaries, String excludeSourceDictionaries, String includePartOfSpeech, String excludePartOfSpeech, String expandTerms, String sortBy, String sortOrder, Integer minCorpusCount, Integer maxCorpusCount, Integer minLength, Integer maxLength, String includeTags, String skip, Integer limit) throws ApiException {
+    // verify required params are set
+    if(query == null ) {
+       throw new ApiException(400, "missing required params");
+    }
     // create path and map variables
     String path = "/words.{format}/reverseDictionary".replaceAll("\\{format\\}","json");
 
@@ -110,10 +118,6 @@ public class WordsApi {
     Map<String, String> queryParams = new HashMap<String, String>();
     Map<String, String> headerParams = new HashMap<String, String>();
 
-    // verify required params are set
-    if(query == null ) {
-       throw new ApiException(400, "missing required params");
-    }
     if(!"null".equals(String.valueOf(query)))
       queryParams.put("query", String.valueOf(query));
     if(!"null".equals(String.valueOf(findSenseForWord)))
@@ -146,8 +150,10 @@ public class WordsApi {
       queryParams.put("skip", String.valueOf(skip));
     if(!"null".equals(String.valueOf(limit)))
       queryParams.put("limit", String.valueOf(limit));
+    String contentType = "application/json";
+
     try {
-      String response = apiInvoker.invokeAPI(basePath, path, "GET", queryParams, null, headerParams);
+      String response = apiInvoker.invokeAPI(basePath, path, "GET", queryParams, null, headerParams, contentType);
       if(response != null){
         return (DefinitionSearchResults) ApiInvoker.deserialize(response, "", DefinitionSearchResults.class);
       }
@@ -195,8 +201,10 @@ public class WordsApi {
       queryParams.put("sortOrder", String.valueOf(sortOrder));
     if(!"null".equals(String.valueOf(limit)))
       queryParams.put("limit", String.valueOf(limit));
+    String contentType = "application/json";
+
     try {
-      String response = apiInvoker.invokeAPI(basePath, path, "GET", queryParams, null, headerParams);
+      String response = apiInvoker.invokeAPI(basePath, path, "GET", queryParams, null, headerParams, contentType);
       if(response != null){
         return (List<WordObject>) ApiInvoker.deserialize(response, "List", WordObject.class);
       }
@@ -238,8 +246,10 @@ public class WordsApi {
       queryParams.put("minLength", String.valueOf(minLength));
     if(!"null".equals(String.valueOf(maxLength)))
       queryParams.put("maxLength", String.valueOf(maxLength));
+    String contentType = "application/json";
+
     try {
-      String response = apiInvoker.invokeAPI(basePath, path, "GET", queryParams, null, headerParams);
+      String response = apiInvoker.invokeAPI(basePath, path, "GET", queryParams, null, headerParams, contentType);
       if(response != null){
         return (WordObject) ApiInvoker.deserialize(response, "", WordObject.class);
       }

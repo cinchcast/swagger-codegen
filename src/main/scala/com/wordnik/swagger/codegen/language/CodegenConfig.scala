@@ -1,5 +1,5 @@
 /**
- *  Copyright 2012 Wordnik, Inc.
+ *  Copyright 2013 Wordnik, Inc.
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -30,7 +30,6 @@ abstract class CodegenConfig {
   def toModelName(name: String): String
   def toApiName(name: String): String
 
-  
   def toModelFilename(name: String) = name
   def toApiFilename(name: String) = toApiName(name)
   def apiNameFromPath(apiPath: String): String
@@ -39,6 +38,7 @@ abstract class CodegenConfig {
 
   val apiTemplateFiles = new HashMap[String, String]()
   val modelTemplateFiles = new HashMap[String, String]()
+  val additionalParams = new HashMap[String, String]
 
   def defaultIncludes = Set[String]()
   def languageSpecificPrimitives = Set[String]()
@@ -74,7 +74,7 @@ abstract class CodegenConfig {
   def processResponseDeclaration(responseClass: String): Option[String] = {
     responseClass match {
       case "void" => None
-      case e: String => Some(typeMapping.getOrElse(e, e))
+      case e: String => Some(toDeclaredType(e))
     }
   }
 
@@ -109,7 +109,7 @@ abstract class CodegenConfig {
   def toVarName(name: String): String = {
     name match {
       case _ if (reservedWords.contains(name)) => escapeReservedWord(name)
-      case _ => typeMapping.getOrElse(name, name)
+      case _ => name
     }
   }
 
@@ -137,18 +137,12 @@ abstract class CodegenConfig {
       case "float" => "0f"
       case "double" => "0.0"
       case e: String if (Set("List").contains(e)) => {
-        val inner = {
-          obj.items match {
-            case Some(items) => {
-              if(items.ref != None) 
-                items.ref.get
-              else
-                items.`type`
-            }
-            case _ => throw new Exception("no inner type defined")
-          }
-        }
-        "new java.util.ArrayList[" + toDeclaredType(inner) + "]" + "()"
+        val inner =
+          obj.items.map(i => i.ref.getOrElse(i.`type`)).getOrElse({
+            println("failed on " + dataType + ", " + obj)
+            throw new Exception("no inner type defined")
+          })
+        "List.empty[" + toDeclaredType(inner) + "]"
       }
       case _ => "_"
     }

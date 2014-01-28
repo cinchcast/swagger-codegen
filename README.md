@@ -8,11 +8,15 @@ http://swagger.wordnik.com.  For more information about Wordnik's APIs, please v
 ### Prerequisites
 You need the following installed and available in your $PATH:
 
-* [Java 1.6](http://java.oracle.com)
+* [Java 1.7](http://java.oracle.com)
+
+Note!  Some folks have had issues with OOM errors with java version "1.6.0_51".  It's strongly suggested that you upgrade to 1.7!
 
 * [Apache maven 3.0.3 or greater](http://maven.apache.org/)
 
 * [Scala 2.9.1](http://www.scala-lang.org)
+
+* [sbt (only download if you're building on Windows)](http://www.scala-sbt.org/)
 
 You also need to add the scala binary to your PATH.
 
@@ -21,6 +25,13 @@ After cloning the project, you need to build it from source with this command:
 ```
 ./sbt assembly
 ```
+
+or for Windows...
+
+```
+sbt assembly
+```
+
 
 ### To generate a sample client library
 You can build a client against Wordnik's [petstore](http://petstore.swagger.wordnik.com) API as follows:
@@ -52,7 +63,7 @@ Other languages have petstore samples, too:
 It's just as easy--you can either run the default generators:
 
 ```
-./bin/runscala.sh com.wordnik.swagger.codegen.BasicScalaGenerator http://petstore.swagger.wordnik.com/api/resources.json special-key
+./bin/runscala.sh com.wordnik.swagger.codegen.BasicScalaGenerator http://petstore.swagger.wordnik.com/api/api-docs special-key
 ```
 
 Replace `Scala` with `Flash`, `Java`, `Objc`, `PHP`, `Python`, `Python3`, `Ruby`.
@@ -136,7 +147,7 @@ client codegen and ui may not work correctly.
 To validate an api and write output to ./swagger-errors.html:
 
 ```
-./bin/validate.sh http://petstore.swagger.wordnik.com/api/resources.json "" ./swagger-errors.html
+./bin/validate.sh http://petstore.swagger.wordnik.com/api/api-docs "specia-key" ./swagger-errors.html
 ```
 
 ### Generating static api documentation
@@ -173,6 +184,29 @@ You can also use the codegen to generate a server for a couple different framewo
 * [scala scalatra generator](https://github.com/wordnik/swagger-codegen/tree/master/samples/server-generator/scalatra)
 
 * [java jax-rs generator](https://github.com/wordnik/swagger-codegen/tree/master/samples/server-generator/java-jaxrs)
+
+
+### Migrating from Swagger 1.1 to 1.2 format
+
+If you've spent time hand-crafting your swagger spec files, you can use the [SpecConverter](https://github.com/wordnik/swagger-codegen/blob/master/src/main/scala/com/wordnik/swagger/codegen/SpecConverter.scala) to do the dirty work.  For example:
+
+```bash
+$ ./bin/update-spec.sh http://developer.wordnik.com/v4/resources.json wordnik-developer
+writing file wordnik-developer/api-docs
+calling: http://developer.wordnik.com/v4/account.json
+calling: http://developer.wordnik.com/v4/word.json
+calling: http://developer.wordnik.com/v4/words.json
+calling: http://developer.wordnik.com/v4/wordList.json
+calling: http://developer.wordnik.com/v4/wordLists.json
+writing file wordnik-developer/account
+writing file wordnik-developer/word
+writing file wordnik-developer/words
+writing file wordnik-developer/wordList
+writing file wordnik-developer/wordLists
+```
+
+Will read the 1.1 spec from wordnik developer and write it into the folder called `wordnik-developer`.
+
 
 ### To build the codegen library
 

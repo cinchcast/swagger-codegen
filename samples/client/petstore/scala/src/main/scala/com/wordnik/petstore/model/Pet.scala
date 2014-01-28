@@ -3,11 +3,16 @@ package com.wordnik.petstore.model
 import com.wordnik.petstore.model.Category
 import com.wordnik.petstore.model.Tag
 case class Pet (
-  tags: List[Tag],
+  /* Unique identifier for the Pet */
   id: Long,
+  /* Category the pet is in */
   category: Category,
-  /* pet status in the store */
-  status: String,
+  /* Friendly name of the pet */
   name: String,
-  photoUrls: List[String])
+  /* Image URLs */
+  photoUrls: List[String],
+  /* Tags assigned to this pet */
+  tags: List[Tag],
+  /* pet status in the store */
+  status: String)
 

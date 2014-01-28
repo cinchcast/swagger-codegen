@@ -1,5 +1,5 @@
 /**
- *  Copyright 2012 Wordnik, Inc.
+ *  Copyright 2013 Wordnik, Inc.
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -45,7 +45,9 @@ class BasicObjcGenerator extends BasicGenerator {
     "NSString")
   
   override def typeMapping = Map(
-    "Date" -> "NIKDate",
+    "enum" -> "NSString",
+    "date" -> "SWGDate",
+    "Date" -> "SWGDate",
     "boolean" -> "NSNumber",
     "string" -> "NSString",
     "integer" -> "NSNumber",
@@ -54,32 +56,43 @@ class BasicObjcGenerator extends BasicGenerator {
     "long" -> "NSNumber",
     "double" -> "NSNumber",
     "Array" -> "NSArray",
+    "array" -> "NSArray",
     "List" -> "NSArray",
     "object" -> "NSObject")
 
   override def importMapping = Map(
-    "Date" -> "NIKDate")
+    "Date" -> "SWGDate")
 
-  override def toModelFilename(name: String) = "NIK" + name
+  override def toModelFilename(name: String) = "SWG" + name
 
   // naming for the models
   override def toModelName(name: String) = {
-    (typeMapping.values ++ 
+    (typeMapping.keys ++ 
       foundationClasses ++ 
       importMapping.values ++ 
       defaultIncludes ++ 
       languageSpecificPrimitives
     ).toSet.contains(name) match {
       case true => name(0).toUpper + name.substring(1)
-      case _ => "NIK" + name(0).toUpper + name.substring(1)
+      case _ => {
+        "SWG" + name(0).toUpper + name.substring(1)
+      }
     }
   }
 
+  // objective c doesn't like variables starting with "new"
+  override def toVarName(name: String): String = {
+    if(name.startsWith("new") || reservedWords.contains(name)) {
+      escapeReservedWord(name)
+    }
+    else name
+  }
+
   // naming for the apis
-  override def toApiName(name: String) = "NIK" + name(0).toUpper + name.substring(1) + "Api"
+  override def toApiName(name: String) = "SWG" + name(0).toUpper + name.substring(1) + "Api"
 
   // location of templates
-  override def templateDir = "src/main/resources/objc"
+  override def templateDir = "objc"
 
   // template used for models
   modelTemplateFiles += "model-header.mustache" -> ".h"
@@ -106,10 +119,10 @@ class BasicObjcGenerator extends BasicGenerator {
         responseClass match {
           case "void" => None
           case e: String => {
-            responseClass.startsWith("List") match {
-              case true => Some("NSArray")
-              case false => Some(toModelName(responseClass))
-            }
+            if(responseClass.toLowerCase.startsWith("array") || responseClass.toLowerCase.startsWith("list"))
+              Some("NSArray")
+            else
+              Some(toModelName(responseClass))
           }
         }
       }
@@ -158,16 +171,16 @@ class BasicObjcGenerator extends BasicGenerator {
 
   override def toDeclaration(obj: ModelProperty) = {
     var declaredType = toDeclaredType(obj.`type`)
-    declaredType match {
-      case "Array" => {
-        declaredType = "List"
+    declaredType.toLowerCase match {
+      case "list" => {
+        declaredType = "array"
       }
       case e: String => e
     }
 
     val defaultValue = toDefaultValue(declaredType, obj)
     declaredType match {
-      case "List" => {
+      case "array" => {
         val inner = {
           obj.items match {
             case Some(items) => {
@@ -176,10 +189,24 @@ class BasicObjcGenerator extends BasicGenerator {
               else
                 items.`type`
             }
-            case _ => throw new Exception("no inner type defined")
+            case _ => {
+              println("failed on " + obj)
+              throw new Exception("no inner type defined")
+            }
           }
         }
-        declaredType += "<" + inner + ">"
+        "NSArray"
+      }
+      case "set" => {
+        val inner = {
+          obj.items match {
+            case Some(items) => items.ref.getOrElse(items.`type`)
+            case _ => {
+              println("failed on " + obj)
+              throw new Exception("no inner type defined")
+            }
+          }
+        }
         "NSArray"
       }
       case _ =>
@@ -205,7 +232,10 @@ class BasicObjcGenerator extends BasicGenerator {
               else
                 items.`type`
             }
-            case _ => throw new Exception("no inner type defined")
+            case _ => {
+              println("failed on " + properCase + ", " + obj)
+              throw new Exception("no inner type defined")
+            }
           }
         }
         "new ArrayList<" + inner + ">" + "()"

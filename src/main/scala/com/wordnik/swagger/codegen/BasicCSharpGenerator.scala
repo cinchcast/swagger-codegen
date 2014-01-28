@@ -1,5 +1,5 @@
 /**
- *  Copyright 2012 Wordnik, Inc.
+ *  Copyright 2013 Wordnik, Inc.
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -24,6 +24,7 @@ object BasicCSharpGenerator extends BasicCSharpGenerator {
 
 class BasicCSharpGenerator extends BasicGenerator {
   override def defaultIncludes = Set(
+    "char",
     "double",
     "int",
     "long",
@@ -44,6 +45,7 @@ class BasicCSharpGenerator extends BasicGenerator {
    * variable declarations.
    */
   override def typeMapping = Map(
+    "array" -> "List",
     "boolean" -> "bool",
     "string" -> "string",
     "int" -> "int",
@@ -67,11 +69,10 @@ class BasicCSharpGenerator extends BasicGenerator {
   apiTemplateFiles += "api.mustache" -> ".cs"
 
   override def reservedWords = Set("abstract", "continue", "for", "new", "switch", "assert", 
-      "default", "if", "package", "synchronized", "boolean", "do", "goto", "private", 
-      "this", "break", "double", "implements", "protected", "throw", "byte", "else", 
-      "import", "public", "throws", "case", "enum", "instanceof", "return", "transient", 
-      "catch", "extends", "short", "try", "char", "final", "interface", "static", 
-      "void", "class", "finally", "strictfp", "volatile", "const", "float", 
+      "default", "if", "package", "synchronized", "do", "goto", "private", "this", "break", 
+      "implements", "protected", "throw", "else", "import", "public", "throws", "case", 
+      "enum", "instanceof", "return", "transient", "catch", "extends", "try", "final", 
+      "interface", "static", "void", "class", "finally", "strictfp", "volatile", "const", 
       "native", "super", "while")
 
   // import/require statements for specific datatypes
@@ -97,7 +98,16 @@ class BasicCSharpGenerator extends BasicGenerator {
   override def processResponseDeclaration(responseClass: String): Option[String] = {
     responseClass match {
       case "void" => None
-      case e: String => Some(typeMapping.getOrElse(e, e.replaceAll("\\[", "<").replaceAll("\\]", ">")))
+      case e: String => {
+        val ComplexTypeMatcher = "(.*)\\[(.*)\\].*".r
+        val t = e match {
+          case ComplexTypeMatcher(container, inner) => {
+            e.replaceAll(container, typeMapping.getOrElse(container.toLowerCase, container))
+          }
+          case _ => e
+        }
+        Some(typeMapping.getOrElse(t, t.replaceAll("\\[", "<").replaceAll("\\]", ">")))
+      }
     }
   }
 
@@ -116,8 +126,8 @@ class BasicCSharpGenerator extends BasicGenerator {
   override def toDeclaration(obj: ModelProperty) = {
     var declaredType = toDeclaredType(obj.`type`)
 
-    declaredType match {
-      case "Array" => declaredType = "List"
+    declaredType.toLowerCase match {
+      case "array" => declaredType = "List"
       case e: String => e
     }
 
@@ -127,7 +137,10 @@ class BasicCSharpGenerator extends BasicGenerator {
         val inner = {
           obj.items match {
             case Some(items) => items.ref.getOrElse(items.`type`)
-            case _ => throw new Exception("no inner type defined")
+            case _ => {
+              println("failed on " + obj)
+              throw new Exception("no inner type defined")
+            }
           }
         }
         declaredType += "<" + toDeclaredType(inner) + ">"
@@ -152,7 +165,10 @@ class BasicCSharpGenerator extends BasicGenerator {
         val inner = {
           obj.items match {
             case Some(items) => items.ref.getOrElse(items.`type`)
-            case _ => throw new Exception("no inner type defined")
+            case _ => {
+              println("failed on " + dataType + ", " + obj)
+              throw new Exception("no inner type defined")
+            }
           }
         }
         "new ArrayList<" + toDeclaredType(inner) + ">" + "()"
